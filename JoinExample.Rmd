@@ -1,0 +1,70 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Hello,
+I am wondering how do I merge two ASV tables that share sample names and taxonomy? I want the sum of counts and to not drop any data.
+There are two different use cases I am attempting to handle.
+ Two ASV matrices with the same sample names produced from the forward primer being located in read 1 or read 2.
+ Two or more ASV matrices of different samples, but still possibly shared taxonomy calls.
+For the second case, I can use merge(). However, I can't figure out a function for the first use case. Any advice is greatly appreciated!
+
+Hey Alexa. I'm trying to figure out exactly what you mean. Usually merge, or dplyr::left_join() work for me when I am trying to merge stuff.
+We might be able to help you a little more if you shared examples of your two tables. Maybe not the whole thing, just enough rows that we can see the problem.
+You can use dput(my_data_frame) to dump some code that you can put in the terminal that we can use to try to duplicate the problem.
+
+```{r}
+forwardHits <- structure(list(`000391-tech-1` = c(5L, 28L, 0L), `000391-tech-2` = c(0L,
+1L, 0L), `000396-tech-1` = c(0L, 1L, 0L)), row.names = c("SomeNameHere",
+"SomeDifferentName",
+"StillDifferent"
+), class = "data.frame")
+forwardHits
+```
+
+```{r}
+reverseHits <- structure(list(`000391-tech-1` = c(3L, 0L, 1L), `000391-tech-2` = c(0L,
+0L, 0L), `000396-tech-1` = c(0L, 0L, 0L)), row.names = c("SomeDifferentName",
+"StillDifferent",
+"AnotherName"
+), class = "data.frame")
+reverseHits
+```
+
+The raw data are two matrices resulting from DADA2. This is after transforming into a data frame (it seemed to be easier to merge than 2 matrices). There are two different matrices/df because the amplicons could be inserted into the adapters in either orientation. I want to merge and sum the results of any overlap. The reads are already in the proper orientation.
+seq.nochimF <- DADA2 pipeline
+seq.nochimR <- DADA2 pipeline
+df_F <- as.data.frame(t(seq.nochimF))
+df_R <- as.data.frame(t(seq.nochimR))
+
+What I want is
+```{r}
+structure(list(`000391-tech-1` = c(5L, 31L, 0L, 1L), `000391-tech-2` = c(0L,
+1L, 0L, 0L), `000396-tech-1` = c(0L, 1L, 0L, 0L)), row.names = c("SomeNameHere",
+"SomeDifferentName",
+"StillDifferent",
+"AnotherName"
+), class = "data.frame") 
+```
+
+I find that reshaping often makes join operations easier. I also find that rownames make tidyverse functions harder, so I tend to turn rownames into their own column. If a function needs rownames, I can put them back later.
+
+```{r}
+library(tidyverse)
+```
+
+
+```{r}
+forwardHits_rowcol <- forwardHits %>% rownames_to_column()
+forwardHits_long <- forwardHits_rowcol %>% pivot_longer(cols = -rowname, names_to = "sample", values_to = "hits")
+forwardHits_long
+
+
+reverseHits_rowcol <- reverseHits %>% rownames_to_column()
+reverseHits_long <- reverseHits_rowcol %>% pivot_longer(cols = -rowname, names_to = "sample", values_to = "hits")
+reverseHits_long
+
+combinedHits <- full_join(forwardHits_long, reverseHits_long)
+```
+
